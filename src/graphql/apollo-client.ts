@@ -1,15 +1,36 @@
 import { ApolloClient, InMemoryCache, createHttpLink } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 
-// TODO: Replace with your GraphQL API endpoint
 const httpLink = createHttpLink({
   uri: "https://report.development.opexa.io/graphql",
 });
 
-const authLink = setContext((_, { headers }) => {
+let cachedToken: string | null = null;
+
+const getAccessToken = async (): Promise<string> => {
+  if (cachedToken) return cachedToken;
+
+  const response = await fetch(
+    "https://auth.development.opexa.io/sessions?ttl=24h",
+    {
+      method: "POST",
+      headers: {
+        authorization:
+          "Basic YmFieWVuZ2luZWVyOjVlODg0ODk4ZGEyODA0NzE1MWQwZTU2ZjhkYzYyOTI3NzM2MDNkMGQ2YWFiYmRkNjJhMTFlZjcyMWQxNTQyZDg=",
+        "platform-code": "Z892",
+        role: "OPERATOR",
+      },
+    }
+  );
+
+  const data = await response.json();
+  cachedToken = data.accessToken;
+  return cachedToken || "";
+};
+
+const authLink = setContext(async (_, { headers }) => {
   // get the authentication token from wherever you store it
-  const token =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyeDYzclJQVVc0UFdLVXpkUm8iLCJyb2xlIjoiT1BFUkFUT1IiLCJqdGkiOiI5YzE3NTE3NDkyZGVjMjM4NDk4YmUwMTMiLCJpcEFkZHJlc3MiOiIxNTguNjIuNjUuMjciLCJsb2NhdGlvbiI6IkNhZ2F5YW4gZGUgT3JvLCBQaGlsaXBwaW5lcyIsInBsYXRmb3JtIjoiMTJ1d3VSQ2NZcDFjV2lYelBZIiwic3RhdHVzIjoiQUNUSVZFIiwiaWFwIjoiMjAyNS0wOS0wNFQxMDo1MTo0MS4zMjArMDA6MDAiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzU2OTgzMTMxLCJleHAiOjE3NTcwNjk1MzF9.bqw2jhpwOPKN3R2GfgUN64gtlZ7a1T_KsYd87h4CRtY";
+  const token = await getAccessToken();
 
   // return the headers to the context so httpLink can read them
   return {
